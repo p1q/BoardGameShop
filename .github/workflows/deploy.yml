@@ -40,18 +40,7 @@ jobs:
     name: Download & Deploy on EC2
     runs-on: ubuntu-latest
     needs: build
-    env:
-      SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-      EC2_IP:            ${{ secrets.EC2_IP }}
 
-      DB_HOST:     ${{ secrets.DB_HOST }}
-      DB_PORT:     ${{ secrets.DB_PORT }}
-      DB_NAME:     ${{ secrets.DB_NAME }}
-      DB_USER:     ${{ secrets.DB_USER }}
-      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-      DB_SSLMODE:  ${{ secrets.DB_SSLMODE }}
-      ALLOWED_HOSTS: ${{ secrets.ALLOWED_HOSTS }}
-      DJANGO_DEBUG:  ${{ secrets.DJANGO_DEBUG }}
     steps:
       - name: Download Docker image artifact
         uses: actions/download-artifact@v4
@@ -59,27 +48,29 @@ jobs:
           name: docker-image
           path: .
 
-      - name: Copy tarball to EC2 and deploy
-        run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v0.7.0
+        with:
+          host: ${{ secrets.EC2_IP }}
+          user: ubuntu
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            # Load the new image
+            docker load -i ./django-board-game.tar
 
-          scp -o StrictHostKeyChecking=no django-board-game.tar ubuntu@$EC2_IP:/home/ubuntu/
+            # Force-remove any old container (frees port 8000)
+            docker rm -f board-game-app || true
 
-          ssh -o StrictHostKeyChecking=no ubuntu@$EC2_IP << 'EOF'
-            docker load -i /home/ubuntu/django-board-game.tar
-            docker stop $(docker ps -q --filter ancestor=django-board-game) || true
-
+            # Run the new container with a stable name
             docker run -d \
-              -e DB_HOST="$DB_HOST" \
-              -e DB_PORT="$DB_PORT" \
-              -e DB_NAME="$DB_NAME" \
-              -e DB_USER="$DB_USER" \
-              -e DB_PASSWORD="$DB_PASSWORD" \
-              -e DB_SSLMODE="$DB_SSLMODE" \
-              -e ALLOWED_HOSTS="$ALLOWED_HOSTS" \
-              -e DJANGO_DEBUG="$DJANGO_DEBUG" \
+              --name board-game-app \
+              -e DB_HOST="${{ secrets.DB_HOST }}" \
+              -e DB_PORT="${{ secrets.DB_PORT }}" \
+              -e DB_NAME="${{ secrets.DB_NAME }}" \
+              -e DB_USER="${{ secrets.DB_USER }}" \
+              -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+              -e DB_SSLMODE="${{ secrets.DB_SSLMODE }}" \
+              -e ALLOWED_HOSTS="${{ secrets.ALLOWED_HOSTS }}" \
+              -e DJANGO_DEBUG="${{ secrets.DJANGO_DEBUG }}" \
               -p 8000:8000 \
               django-board-game
-          EOF
