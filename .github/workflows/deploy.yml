@@ -49,10 +49,10 @@ jobs:
           path: .
 
       - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@v0.7.0
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_IP }}
-          user: ubuntu
+          username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
             # Load the new image
