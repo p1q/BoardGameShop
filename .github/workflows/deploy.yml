@@ -30,16 +30,16 @@ jobs:
           docker image prune -a -f
 
       - name: Build Docker image
-        run: docker build --no-cache -t django-board-game .
+        run: docker build --no-cache -t django-board-game:${{ github.sha }} .
 
       - name: Save Docker image to tarball
-        run: docker save django-board-game -o django-board-game.tar
+        run: docker save django-board-game:${{ github.sha }} -o django-board-game-${{ github.sha }}.tar
 
       - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image
-          path: django-board-game.tar
+          name: docker-image-${{ github.sha }}
+          path: django-board-game-${{ github.sha }}.tar
 
   deploy:
     name: Download & Deploy on EC2
@@ -50,7 +50,7 @@ jobs:
       - name: Download Docker image artifact
         uses: actions/download-artifact@v4
         with:
-          name: docker-image
+          name: docker-image-${{ github.sha }}
           path: .
 
       - name: Deploy to EC2 via SSH
@@ -62,7 +62,7 @@ jobs:
           script: |
             docker container prune -f
             docker image prune -a -f
-            docker load -i ./django-board-game.tar
+            docker load -i ./django-board-game-${{ github.sha }}.tar
 
             docker run -d \
               --name board-game-app \
@@ -75,4 +75,4 @@ jobs:
               -e ALLOWED_HOSTS="${{ secrets.ALLOWED_HOSTS }}" \
               -e DJANGO_DEBUG="${{ secrets.DJANGO_DEBUG }}" \
               -p 8000:8000 \
-              django-board-game
+              django-board-game:${{ github.sha }}
