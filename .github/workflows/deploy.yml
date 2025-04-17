@@ -14,14 +14,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Remove all Docker containers & images (runner cleanup)
-        run: |
-          docker rm -f $(docker ps -aq) || true
-          docker rmi -f $(docker images -aq) || true
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
 
-      - name: Build Docker image without cache
+      - name: Install dependencies
         run: |
-          docker build --no-cache -t django-board-game .
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Clean up existing containers and images
+        run: |
+          docker container prune -f
+          docker image prune -a -f
+
+      - name: Build Docker image
+        run: docker build --no-cache -t django-board-game .
 
       - name: Save Docker image to tarball
         run: docker save django-board-game -o django-board-game.tar
@@ -51,9 +60,8 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            docker rm -f $(docker ps -aq) || true
-            docker rmi -f $(docker images -aq) || true
-
+            docker container prune -f
+            docker image prune -a -f
             docker load -i ./django-board-game.tar
 
             docker run -d \
