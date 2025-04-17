@@ -11,4 +11,4 @@ RUN pip install --upgrade pip && \
 
 COPY . .
 
-CMD ["gunicorn", "board_game_shop.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
