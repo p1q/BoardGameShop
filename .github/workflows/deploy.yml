@@ -14,32 +14,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.13'
-
-      - name: Install dependencies
+      - name: Remove all Docker containers & images (runner cleanup)
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          docker rm -f $(docker ps -aq) || true
+          docker rmi -f $(docker images -aq) || true
 
-      - name: Clean up existing containers and images
+      - name: Build Docker image without cache
         run: |
-          docker container prune -f
-          docker image prune -a -f
-
-      - name: Build Docker image
-        run: docker build --no-cache -t django-board-game:${{ github.sha }} .
+          docker build --no-cache -t django-board-game .
 
       - name: Save Docker image to tarball
-        run: docker save django-board-game:${{ github.sha }} -o django-board-game-${{ github.sha }}.tar
+        run: docker save django-board-game -o django-board-game.tar
 
       - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image-${{ github.sha }}
-          path: django-board-game-${{ github.sha }}.tar
+          name: docker-image
+          path: django-board-game.tar
 
   deploy:
     name: Download & Deploy on EC2
@@ -50,7 +41,7 @@ jobs:
       - name: Download Docker image artifact
         uses: actions/download-artifact@v4
         with:
-          name: docker-image-${{ github.sha }}
+          name: docker-image
           path: .
 
       - name: Deploy to EC2 via SSH
@@ -60,9 +51,10 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            docker container prune -f
-            docker image prune -a -f
-            docker load -i ./django-board-game-${{ github.sha }}.tar
+            docker rm -f $(docker ps -aq) || true
+            docker rmi -f $(docker images -aq) || true
+
+            docker load -i ./django-board-game.tar
 
             docker run -d \
               --name board-game-app \
@@ -75,4 +67,4 @@ jobs:
               -e ALLOWED_HOSTS="${{ secrets.ALLOWED_HOSTS }}" \
               -e DJANGO_DEBUG="${{ secrets.DJANGO_DEBUG }}" \
               -p 8000:8000 \
-              django-board-game:${{ github.sha }}
+              django-board-game
