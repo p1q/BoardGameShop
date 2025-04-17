@@ -6,8 +6,8 @@ on:
       - main
 
 jobs:
-  backend:
-    name: Build and Deploy Django Backend
+  build:
+    name: Build & Package Docker Image
     runs-on: ubuntu-latest
 
     steps:
@@ -28,13 +28,29 @@ jobs:
         run: |
           docker build -t django-board-game .
 
-      - name: Save Docker image as artifact
-        uses: actions/upload-artifact@v3
+      - name: Save Docker image to tarball
+        run: |
+          docker save django-board-game -o django-board-game.tar
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
         with:
           name: docker-image
-          path: ./django-board-game
+          path: django-board-game.tar
 
-      - name: Copy Docker image to EC2 and deploy
+  deploy:
+    name: Download & Deploy on EC2
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: .
+
+      - name: Copy tarball to EC2 and deploy
         env:
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           EC2_IP: ${{ secrets.EC2_IP }}
@@ -42,8 +58,13 @@ jobs:
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+
+          # Copy the image tarball to the EC2 instance
+          scp -o StrictHostKeyChecking=no django-board-game.tar ubuntu@$EC2_IP:/home/ubuntu/
+
+          # SSH in, load the image, stop any existing container, and run the new one
           ssh -o StrictHostKeyChecking=no ubuntu@$EC2_IP << 'EOF'
-            docker pull django-board-game
-            docker stop $(docker ps -q --filter ancestor=django-board-game)
+            docker load -i /home/ubuntu/django-board-game.tar
+            docker stop $(docker ps -q --filter ancestor=django-board-game) || true
             docker run -d -p 8000:8000 django-board-game
           EOF
