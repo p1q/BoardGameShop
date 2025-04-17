@@ -14,10 +14,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Clean up any existing Docker containers
-        run: |
-          docker rm -f $(docker ps -aq) || true
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -59,11 +55,9 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            docker rm -f $(docker ps -aq) || true
+            docker ps -aq | xargs -r docker rm -f
 
             docker load -i ./django-board-game.tar
-
-            docker ps -q --filter publish=8000 | xargs --no-run-if-empty docker rm -f
 
             docker run -d \
               --name board-game-app \
