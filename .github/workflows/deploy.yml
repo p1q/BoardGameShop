@@ -55,13 +55,11 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            # Load the new image
             docker load -i ./django-board-game.tar
 
-            # Force-remove any old container (frees port 8000)
-            docker rm -f board-game-app || true
+            docker ps -a -q --filter ancestor=django-board-game \
+              | xargs --no-run-if-empty docker rm -f
 
-            # Run the new container with a stable name
             docker run -d \
               --name board-game-app \
               -e DB_HOST="${{ secrets.DB_HOST }}" \
