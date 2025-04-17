@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
+          pip install -r requirements.txt
 
       - name: Build Docker image
         run: |
@@ -59,10 +59,8 @@ jobs:
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          # Copy the image tarball to the EC2 instance
           scp -o StrictHostKeyChecking=no django-board-game.tar ubuntu@$EC2_IP:/home/ubuntu/
 
-          # SSH in, load the image, stop any existing container, and run the new one
           ssh -o StrictHostKeyChecking=no ubuntu@$EC2_IP << 'EOF'
             docker load -i /home/ubuntu/django-board-game.tar
             docker stop $(docker ps -q --filter ancestor=django-board-game) || true
