@@ -1,4 +1,6 @@
-name: BoardGameShop CI/CD
+# файл: .github/workflows/deploy.yml
+
+name: CI/CD Python Django
 
 on:
   push:
@@ -32,7 +34,7 @@ jobs:
       - name: Upload Docker image tarball
         uses: actions/upload-artifact@v4
         with:
-          name: django-game-tar
+          name: django-board-game-tar
           path: django-board-game.tar
 
   deploy:
@@ -44,7 +46,7 @@ jobs:
       - name: Download Docker image tarball
         uses: actions/download-artifact@v4
         with:
-          name: django-game-tar
+          name: django-board-game-tar
           path: .
 
       - name: Deploy to EC2 via SSH
@@ -54,10 +56,20 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            docker rm -f $(docker ps -aq) || true
-            docker rmi -f $(docker images -q) || true
+            # — убрать все контейнеры, если они есть
+            if [ -n "$(docker ps -aq)" ]; then
+              docker rm -f $(docker ps -aq)
+            fi
+
+            # — убрать все образы, если они есть
+            if [ -n "$(docker images -q)" ]; then
+              docker rmi -f $(docker images -q)
+            fi
+
+            # — загрузить свежий образ из артефакта
             docker load -i django-board-game.tar
 
+            # — запустить контейнер
             docker run -d \
               --name board-game-app \
               -e DB_HOST="${{ secrets.DB_HOST }}" \
