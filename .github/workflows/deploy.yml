@@ -46,8 +46,19 @@ jobs:
           name: django-board-game-tar
           path: .
 
-      - name: Move tarball to root
-        run: mv ./django-board-game-tar/django-board-game.tar ./django-board-game.tar
+      - name: List files to verify download
+        run: ls -R
+
+      - name: Move tarball if needed
+        run: |
+          if [ -f "./django-board-game-tar/django-board-game.tar" ]; then
+            mv ./django-board-game-tar/django-board-game.tar ./django-board-game.tar
+          elif [ -f "./django-board-game.tar" ]; then
+            echo "File already in place."
+          else
+            echo "ERROR: docker tarball not found!"
+            exit 1
+          fi
 
       - name: Copy Docker image to EC2
         uses: appleboy/scp-action@v0.1.4
@@ -67,14 +78,10 @@ jobs:
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
             echo "Удаление всех контейнеров..."
-            if [ -n "$(docker ps -aq)" ]; then
-              docker rm -f $(docker ps -aq)
-            fi
+            docker ps -aq | xargs -r docker rm -f
 
             echo "Удаление всех образов..."
-            if [ -n "$(docker images -q)" ]; then
-              docker rmi -f $(docker images -q)
-            fi
+            docker images -q | xargs -r docker rmi -f
 
             echo "Загрузка образа..."
             docker load -i ~/django-board-game.tar
