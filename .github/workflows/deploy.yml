@@ -9,19 +9,22 @@ jobs:
   build:
     name: Build & Package Docker Image
     runs-on: ubuntu-latest
+    env:
+      DOCKER_BUILDKIT: 1
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Remove all Docker containers & images (runner cleanup)
+      - name: Build Docker image from scratch
         run: |
-          docker rm -f $(docker ps -aq) || true
-          docker rmi -f $(docker images -aq) || true
-
-      - name: Build Docker image without cache
-        run: |
-          docker build --no-cache -t django-board-game .
+          docker build \
+            --no-cache \
+            --pull \
+            --force-rm \
+            --squash \
+            -f Dockerfile \
+            -t django-board-game .
 
       - name: Save Docker image to tarball
         run: docker save django-board-game -o django-board-game.tar
@@ -51,8 +54,8 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            docker rm -f $(docker ps -aq) || true
-            docker rmi -f $(docker images -aq) || true
+            docker rm -f board-game-app || true
+            docker rmi -f django-board-game || true
 
             docker load -i ./django-board-game.tar
 
@@ -67,4 +70,5 @@ jobs:
               -e ALLOWED_HOSTS="${{ secrets.ALLOWED_HOSTS }}" \
               -e DJANGO_DEBUG="${{ secrets.DJANGO_DEBUG }}" \
               -p 8000:8000 \
-              django-board-game
+              django-board-game \
+              python manage.py runserver 0.0.0.0:8000
