@@ -84,7 +84,7 @@ jobs:
             docker images -q | xargs -r docker rmi -f
 
             echo "Загрузка образа..."
-            docker load -i ~/django-board-game.tar
+            docker load -i /home/ubuntu/django-board-game.tar/django-board-game.tar
 
             echo "Запуск нового контейнера..."
             docker run -d \
