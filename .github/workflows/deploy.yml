@@ -46,6 +46,9 @@ jobs:
           name: django-board-game-tar
           path: .
 
+      - name: Move tarball to root
+        run: mv ./django-board-game-tar/django-board-game.tar ./django-board-game.tar
+
       - name: Copy Docker image to EC2
         uses: appleboy/scp-action@v0.1.4
         with:
