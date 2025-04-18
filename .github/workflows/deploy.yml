@@ -44,10 +44,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: django-board-game-tar
-          path: .
+          path: ./artifact
 
-      - name: List files to verify download
-        run: ls -l
+      - name: Move tarball to root for SCP
+        run: mv ./artifact/django-board-game.tar .
+
+      - name: List files to verify tarball
+        run: ls -lh
 
       - name: Copy Docker image to EC2
         uses: appleboy/scp-action@v0.1.4
