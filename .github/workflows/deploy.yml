@@ -46,7 +46,10 @@ jobs:
           name: django-board-game-tar
           path: .
 
-      - name: Copy Docker image to EC2 (cleanup & upload)
+      - name: List files to verify download
+        run: ls -l
+
+      - name: Copy Docker image to EC2
         uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.EC2_IP }}
@@ -55,7 +58,6 @@ jobs:
           port: 22
           source: "django-board-game.tar"
           target: "~/django-board-game.tar"
-          rm: true
 
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1
@@ -64,21 +66,20 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            # Остановить и удалить все контейнеры (если есть)
+            echo "Удаление всех контейнеров..."
             if [ -n "$(docker ps -aq)" ]; then
-              docker stop $(docker ps -aq)
-              docker rm   $(docker ps -aq)
+              docker rm -f $(docker ps -aq)
             fi
 
-            # Удалить все образы (если есть)
+            echo "Удаление всех образов..."
             if [ -n "$(docker images -q)" ]; then
               docker rmi -f $(docker images -q)
             fi
 
-            # Загрузить свежий образ из tar-файла
+            echo "Загрузка образа..."
             docker load -i ~/django-board-game.tar
 
-            # Запустить новый контейнер
+            echo "Запуск нового контейнера..."
             docker run -d \
               --name board-game-app \
               -e DB_HOST="${{ secrets.DB_HOST }}" \
