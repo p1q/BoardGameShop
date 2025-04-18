@@ -53,7 +53,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           port: 22
-          source: "django-board-game.tar"
+          source: "django-board-game-tar/django-board-game.tar"
           target: "~/django-board-game.tar"
 
       - name: Deploy to EC2 via SSH
@@ -63,20 +63,21 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            # — удалить все контейнеры, если они есть
+            # Остановить все контейнеры (если есть)
             if [ -n "$(docker ps -aq)" ]; then
-              docker rm -f $(docker ps -aq)
+              docker stop $(docker ps -aq)
+              docker rm $(docker ps -aq)
             fi
 
-            # — удалить все образы, если они есть
+            # Удалить все образы (если есть)
             if [ -n "$(docker images -q)" ]; then
               docker rmi -f $(docker images -q)
             fi
 
-            # — загрузить свежий образ
+            # Загрузить свежий образ
             docker load -i ~/django-board-game.tar
 
-            # — запустить контейнер
+            # Запустить контейнер
             docker run -d \
               --name board-game-app \
               -e DB_HOST="${{ secrets.DB_HOST }}" \
