@@ -1,6 +1,4 @@
-# файл: .github/workflows/deploy.yml
-
-name: CI/CD Python Django
+name: BoardGameShop CI/CD
 
 on:
   push:
@@ -24,7 +22,6 @@ jobs:
             --no-cache \
             --pull \
             --force-rm \
-            --squash \
             -f Dockerfile \
             -t django-board-game .
 
@@ -38,7 +35,7 @@ jobs:
           path: django-board-game.tar
 
   deploy:
-    name: Download & Deploy on EC2
+    name: Download, Copy & Deploy on EC2
     runs-on: ubuntu-latest
     needs: build
 
@@ -49,6 +46,16 @@ jobs:
           name: django-board-game-tar
           path: .
 
+      - name: Copy Docker image to EC2
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.EC2_IP }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          port: 22
+          source: "django-board-game.tar"
+          target: "~/django-board-game.tar"
+
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1
         with:
@@ -56,18 +63,18 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            # — убрать все контейнеры, если они есть
+            # — удалить все контейнеры, если они есть
             if [ -n "$(docker ps -aq)" ]; then
               docker rm -f $(docker ps -aq)
             fi
 
-            # — убрать все образы, если они есть
+            # — удалить все образы, если они есть
             if [ -n "$(docker images -q)" ]; then
               docker rmi -f $(docker images -q)
             fi
 
-            # — загрузить свежий образ из артефакта
-            docker load -i django-board-game.tar
+            # — загрузить свежий образ
+            docker load -i ~/django-board-game.tar
 
             # — запустить контейнер
             docker run -d \
