@@ -1,4 +1,4 @@
-name: CI/CD Python Django
+name: BoardGameShop CI/CD
 
 on:
   push:
@@ -29,10 +29,10 @@ jobs:
       - name: Save Docker image to tarball
         run: docker save django-board-game -o django-board-game.tar
 
-      - name: Upload Docker image artifact
+      - name: Upload Docker image tarball
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image
+          name: django-game-tar
           path: django-board-game.tar
 
   deploy:
@@ -41,10 +41,10 @@ jobs:
     needs: build
 
     steps:
-      - name: Download Docker image artifact
+      - name: Download Docker image tarball
         uses: actions/download-artifact@v4
         with:
-          name: docker-image
+          name: django-game-tar
           path: .
 
       - name: Deploy to EC2 via SSH
@@ -54,10 +54,9 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            docker rm -f board-game-app || true
-            docker rmi -f django-board-game || true
-
-            docker load -i ./django-board-game.tar
+            docker rm -f $(docker ps -aq) || true
+            docker rmi -f $(docker images -q) || true
+            docker load -i django-board-game.tar
 
             docker run -d \
               --name board-game-app \
